@@ -1,0 +1,1 @@
+switch_script is a plugin for the Sublime Text 2 editor that adds support for switching between header and source files according to specified extensions within the current active directory tree.
