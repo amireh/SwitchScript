@@ -1,21 +1,45 @@
 import sublime, sublime_plugin
 import os.path
 
-# paths contains a list of all the directories that contain source and/or header files
-paths = ['.', 'include', 'src']
+version  = "0.2"
+options  = {}
+defaults = {
+  # A list of all the directories that contain source and/or header files
+  "paths": ['.', 'include', 'src'],
+  
+  # Folders specified in excluded_paths will not be traversed
+  "excluded_paths": ['.git', '.svn', '.cvs'],
 
-# Folders specified in excluded_paths will not be traversed
-excluded_paths = ['.git', '.svn', '.cvs']
+  # Define the extensions you'd like to switch between here
+  "header_extensions": ['h', 'hpp', 'hh', 'hxx'],
+  "source_extensions": ['c', 'cpp', 'cc', 'cxx', 'm', 'mm'],
 
-# Define the extensions you'd like to switch between here
-header_extensions = ['h', 'hpp', 'hh', 'hxx']
-source_extensions = ['c', 'cpp', 'cc', 'cxx', 'm', 'mm']
+  # Useful for debugging
+  "logging_enabled": False
+}
+
+def log(msg):
+  global options
+  if not options["logging_enabled"]:
+    return
+
+  global version
+  print "SwitchScript " + version + ": " + msg
+
+def assign_options(args):
+  global options
+  global defaults
+
+  options = defaults
+
+  for entry in args:
+    options[str(entry)] = args[str(entry)]
 
 # Returns whether the given file is a source file according to the
 # specified array of source file extensions
 #
 def is_source(fname):
-  for ext in source_extensions:
+  for ext in options["source_extensions"]:
     if fname.endswith(ext):
       return True
   return False
@@ -24,7 +48,7 @@ def is_source(fname):
 # specified array of header file extensions
 #
 def is_header(fname):
-  for ext in header_extensions:
+  for ext in options["header_extensions"]:
     if fname.endswith(ext):
       return True
   return False
@@ -38,18 +62,18 @@ def find_in_directory(in_dir, in_file_info):
   name = in_file_info["name"]
   path = in_file_info["path"]
   extension_checker = is_source if is_header(path) else is_header
-  extensions = source_extensions if is_header(path) else header_extensions
+  extensions = options["source_extensions"] if is_header(path) else options["header_extensions"]
   matched = []
 
-  # print "Searching for a spouse for: " + path
-  # print "List of matching extensions: " + str(extensions)
+  log("Searching for a spouse for: " + path)
+  log("List of matching extensions: " + str(extensions))
 
   # Walk the tree and track every file that matches the source's name and opposing extension
   for root, dirs, files in os.walk( in_dir ):
 
     # Skip directories marked as excluded
     dir_name = os.path.basename(root)
-    if dir_name in excluded_paths:
+    if dir_name in options["excluded_paths"]:
       continue
 
     for file in files:
@@ -62,13 +86,27 @@ def find_in_directory(in_dir, in_file_info):
 # from the given path
 #
 def strip_common_ancestors(in_path):
-  for path in paths:
+  for path in options["paths"]:
     if path not in in_path:
       continue
 
     in_path.remove(path)
 
   return in_path
+
+def portable_split(path, debug=False):
+    parts = []
+    while True:
+        newpath, tail = os.path.split(path)
+        if debug: print repr(path), (newpath, tail)
+        if newpath == path:
+            assert not tail
+            if path: parts.append(path)
+            break
+        parts.append(tail)
+        path = newpath
+    parts.reverse()
+    return parts
 
 def find_counterpart(in_root, in_file_path):
 
@@ -79,15 +117,21 @@ def find_counterpart(in_root, in_file_path):
   candidates = find_in_directory(in_root, file_info)
 
   # TODO: what is a cross-platform way to do this? need to find the folder separator
-  file_info["ancestors"] = strip_common_ancestors(os.path.dirname(file_info["path"]).split('/'))
+  # 1. Strip the filename
+  file_info["ancestors"] = os.path.dirname(file_info["path"])
+  # 2. Break it down into parts in a cross-platform way
+  # file_info["ancestors"] = strip_common_ancestors(file_info["ancestors"].split('/'))
+  file_info["ancestors"] = strip_common_ancestors(portable_split(file_info["ancestors"]))
+  
   file_info["steps"] = len(file_info["ancestors"])
 
-  # print "File's ancestors: " + str(file_info["ancestors"]) + "( " + str(file_info["steps"]) + ")"
+  log("File's ancestors: " + str(file_info["ancestors"]) + "( " + str(file_info["steps"]) + ")")
 
   # Find the candidates according to the directory ancestry
   candidate = None
   for file in candidates:
-    ancestors = strip_common_ancestors(os.path.dirname(file).split('/'))
+    # ancestors = strip_common_ancestors(os.path.dirname(file).split('/'))
+    ancestors = strip_common_ancestors(portable_split(os.path.dirname(file)))
     steps = len(ancestors)
 
     # Exclude any candidate which resides in a deeper or lesser directory level than the original file
@@ -106,31 +150,32 @@ def find_counterpart(in_root, in_file_path):
       continue
 
     candidate = file
-    # print "\tA new candidate has been found: " + candidate
+    log("A new candidate has been found: " + candidate)
 
   if candidate:
-    print "Match found: " + candidate
-
+    log("Match found: " + candidate)
+   
   return candidate
 
 class SwitchScriptCommand(sublime_plugin.WindowCommand):
-  def run(self, extensions=[]):
-    # if not self.window.active_view():
-    #   print "Oops, not the active view!"
-    #   return
+  def run(self, options = { "header_extensions": [], "source_extensions": [], "paths": [], "excluded_paths": [], "logging_enabled": False }):
+    # Set user options
+    assign_options(options)
 
+    # Get the current active file name and active folder
     fname = self.window.active_view().file_name()
     if not fname:
-      print "Can not switch script, file name can not be retrieved. Is a file currently open and active?"
+      log("Can not switch script, file name can not be retrieved. Is a file currently open and active?")
       return
 
     if len(self.window.folders()) == 0:
-      print "Can not switch script, a folder must be selected. Aborting."
+      log("Can not switch script, a folder must be selected. Aborting.")
       return
 
     root = self.window.folders()[0]
-    print "--"
-    print "Switching script " + fname + " in " + root
+
+    log("Switching script " + fname + " in " + root)
+
     counterpart = find_counterpart(root, fname)
 
     if counterpart and os.path.exists(counterpart):
