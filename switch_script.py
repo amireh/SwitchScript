@@ -24,7 +24,7 @@ def log(msg):
     return
 
   global version
-  print "SwitchScript " + version + ": " + msg
+  print "SwitchScript %s: %s" % (version, msg)
 
 def assign_options(args):
   global options
