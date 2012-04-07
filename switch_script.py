@@ -65,8 +65,8 @@ def find_in_directory(in_dir, in_file_info):
   extensions = options["source_extensions"] if is_header(path) else options["header_extensions"]
   matched = []
 
-  log("Searching for a spouse for: " + path)
-  log("List of matching extensions: " + str(extensions))
+  log("Searching for a spouse for: %s" % path)
+  log("List of matching extensions: %r" % extensions)
 
   # Walk the tree and track every file that matches the source's name and opposing extension
   for root, dirs, files in os.walk( in_dir ):
@@ -116,21 +116,18 @@ def find_counterpart(in_root, in_file_path):
 
   candidates = find_in_directory(in_root, file_info)
 
-  # TODO: what is a cross-platform way to do this? need to find the folder separator
-  # 1. Strip the filename
+  # Strip the filename
   file_info["ancestors"] = os.path.dirname(file_info["path"])
-  # 2. Break it down into parts in a cross-platform way
-  # file_info["ancestors"] = strip_common_ancestors(file_info["ancestors"].split('/'))
+  # Break it down into parts in a cross-platform way
   file_info["ancestors"] = strip_common_ancestors(portable_split(file_info["ancestors"]))
-  
+  # How many parts?  
   file_info["steps"] = len(file_info["ancestors"])
 
-  log("File's ancestors: " + str(file_info["ancestors"]) + "( " + str(file_info["steps"]) + ")")
+  log("File's ancestors: %r (%d)" % (file_info["ancestors"], file_info["steps"]))
 
   # Find the candidates according to the directory ancestry
   candidate = None
   for file in candidates:
-    # ancestors = strip_common_ancestors(os.path.dirname(file).split('/'))
     ancestors = strip_common_ancestors(portable_split(os.path.dirname(file)))
     steps = len(ancestors)
 
@@ -150,10 +147,10 @@ def find_counterpart(in_root, in_file_path):
       continue
 
     candidate = file
-    log("A new candidate has been found: " + candidate)
+    log("A new candidate has been found: %s" % candidate)
 
   if candidate:
-    log("Match found: " + candidate)
+    log("Match found: %s" % candidate)
    
   return candidate
 
@@ -174,7 +171,7 @@ class SwitchScriptCommand(sublime_plugin.WindowCommand):
 
     root = self.window.folders()[0]
 
-    log("Switching script " + fname + " in " + root)
+    log("Switching script %s in %s" % (fname, root))
 
     counterpart = find_counterpart(root, fname)
 
