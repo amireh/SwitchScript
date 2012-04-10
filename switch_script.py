@@ -87,10 +87,11 @@ def find_in_directory(in_dir, in_file_info):
 #
 def strip_common_ancestors(in_path):
   for path in options["paths"]:
+    log("Checking if %s is in %r" % (path, in_path))
     if path not in in_path:
       continue
 
-    in_path.remove(path)
+    in_path = filter(lambda a: a != path, in_path)
 
   return in_path
 
@@ -116,6 +117,8 @@ def find_counterpart(in_root, in_file_path):
 
   candidates = find_in_directory(in_root, file_info)
 
+  log("Candidates: %r" % candidates)
+
   # Strip the filename
   file_info["ancestors"] = os.path.dirname(file_info["path"])
   # Break it down into parts in a cross-platform way
@@ -130,6 +133,8 @@ def find_counterpart(in_root, in_file_path):
   for file in candidates:
     ancestors = strip_common_ancestors(portable_split(os.path.dirname(file)))
     steps = len(ancestors)
+
+    log("Stripped candidate: %r" % ancestors)
 
     # Exclude any candidate which resides in a deeper or lesser directory level than the original file
     if steps != file_info["steps"]:
