@@ -203,6 +203,8 @@ class SwitchScriptCommand(sublime_plugin.WindowCommand):
     # Update: disabled in 0.3
     # root = self.window.folders()[0]
 
+    counterpart = None
+
     # If more than one folder is open, we'll begin our search
     # within the folder that contains the current file, and if
     # no match was found there, we will grab any candidate we
@@ -210,13 +212,19 @@ class SwitchScriptCommand(sublime_plugin.WindowCommand):
     #
     # See for more info: https://github.com/amireh/SwitchScript/issues/1
     root = None
+    root_open = False # we need to account for the possibility of the file's folder not being open
     for root in self.window.folders():
       if is_within(root, fname):
+        root_open = True
         break
 
-    log("Looking inside my folder first: %s" %(root))
-
-    counterpart = find_counterpart(root, fname)
+    if root_open:
+      log("Looking inside my folder first: %s" %(root))
+      counterpart = find_counterpart(root, fname)
+    else:
+      # reset the root so it doesn't get skipped by the later sibling loop
+      # thinking it was searched, it wasn't
+      root = None
 
     if counterpart and os.path.exists(counterpart):
       self.window.open_file(counterpart)
